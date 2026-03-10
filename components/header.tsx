@@ -11,7 +11,7 @@ export function Header() {
             <Sparkles className="w-6 h-6 text-black" strokeWidth={2} />
           </div>
           <div>
-            <h1 className="font-bold text-xl tracking-tight">2HEAL</h1>
+            <h1 className="font-bold text-xl tracking-tight">Unger </h1>
             <p className="text-sm text-white/60 font-medium">PhysioAssistent</p>
           </div>
         </div>
