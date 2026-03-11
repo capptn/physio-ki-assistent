@@ -87,7 +87,7 @@ export function Header() {
           </div>
           <div>
             <h1 className="font-bold text-lg sm:text-xl tracking-tight">
-              2HEAL
+              Unger
             </h1>
             <p className="text-xs sm:text-sm text-white/60 font-medium">
               PhysioAssistent
@@ -136,8 +136,7 @@ export function Header() {
 
             <div className="p-4">
               <p className="text-sm text-white/60 mb-3">
-                Diesen Token kannst du in der Firebase Console verwenden, um
-                Push-Benachrichtigungen zu senden:
+                Push Token, den benötigst du nur wenn der Support danach fragt:
               </p>
 
               <div className="bg-black rounded-xl p-4 border border-white/10">
