@@ -6,53 +6,63 @@ importScripts(
   "https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js",
 );
 
-// Firebase config will be injected via postMessage from the main app
-let firebaseConfig = null;
+// Initialize Firebase directly in service worker
+// Note: These values are public and safe to include in client-side code
+const firebaseConfig = {
+  apiKey: "AIzaSyExample", // Will be replaced by actual config
+  authDomain: "example.firebaseapp.com",
+  projectId: "example",
+  storageBucket: "example.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123",
+};
 
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "FIREBASE_CONFIG") {
-    firebaseConfig = event.data.config;
-    initializeFirebase();
-  }
-});
-
-function initializeFirebase() {
-  if (!firebaseConfig) return;
-
-  firebase.initializeApp(firebaseConfig);
-  const messaging = firebase.messaging();
-
-  // Handle background messages
-  messaging.onBackgroundMessage((payload) => {
-    console.log("Background message received:", payload);
-
-    const notificationTitle =
-      payload.notification?.title || "2HEAL Physiotherapie";
-    const notificationOptions = {
-      body: payload.notification?.body || "Sie haben eine neue Nachricht",
-      icon: "/icons/icon-192x192.png",
-      badge: "/icons/icon-72x72.png",
-      tag: payload.data?.tag || "default",
-      data: payload.data,
-      vibrate: [100, 50, 100],
-      actions: [
-        {
-          action: "open",
-          title: "Öffnen",
-        },
-        {
-          action: "close",
-          title: "Schließen",
-        },
-      ],
-    };
-
-    self.registration.showNotification(notificationTitle, notificationOptions);
-  });
+// Try to get config from query params (set during registration)
+const urlParams = new URLSearchParams(self.location.search);
+if (urlParams.has("apiKey")) {
+  firebaseConfig.apiKey = urlParams.get("apiKey");
+  firebaseConfig.authDomain = urlParams.get("authDomain");
+  firebaseConfig.projectId = urlParams.get("projectId");
+  firebaseConfig.storageBucket = urlParams.get("storageBucket");
+  firebaseConfig.messagingSenderId = urlParams.get("messagingSenderId");
+  firebaseConfig.appId = urlParams.get("appId");
 }
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
+
+// Handle background messages
+messaging.onBackgroundMessage((payload) => {
+  console.log("[v0] Background message received:", payload);
+
+  const notificationTitle =
+    payload.notification?.title || "Unger Physiotherapie";
+  const notificationOptions = {
+    body: payload.notification?.body || "Sie haben eine neue Nachricht",
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/icon-72x72.png",
+    tag: payload.data?.tag || "default",
+    data: payload.data,
+    vibrate: [100, 50, 100],
+    actions: [
+      {
+        action: "open",
+        title: "Öffnen",
+      },
+      {
+        action: "close",
+        title: "Schließen",
+      },
+    ],
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
 
 // Handle notification click
 self.addEventListener("notificationclick", (event) => {
+  console.log("[v0] Notification clicked:", event);
   event.notification.close();
 
   if (event.action === "close") return;
@@ -63,17 +73,40 @@ self.addEventListener("notificationclick", (event) => {
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((windowClients) => {
-        // Check if there's already a window open
         for (const client of windowClients) {
           if (client.url.includes(self.location.origin) && "focus" in client) {
             client.navigate(urlToOpen);
             return client.focus();
           }
         }
-        // If no window is open, open a new one
         if (clients.openWindow) {
           return clients.openWindow(urlToOpen);
         }
       }),
   );
+});
+
+// Handle push events directly
+self.addEventListener("push", (event) => {
+  console.log("[v0] Push event received:", event);
+
+  if (!event.data) return;
+
+  try {
+    const payload = event.data.json();
+    console.log("[v0] Push payload:", payload);
+
+    const title = payload.notification?.title || "Unger Physiotherapie";
+    const options = {
+      body: payload.notification?.body || "Neue Nachricht",
+      icon: "/icons/icon-192x192.png",
+      badge: "/icons/icon-72x72.png",
+      data: payload.data,
+      vibrate: [100, 50, 100],
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+  } catch (error) {
+    console.error("[v0] Error handling push:", error);
+  }
 });

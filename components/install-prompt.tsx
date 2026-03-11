@@ -113,7 +113,7 @@ export function InstallPrompt() {
           App installieren
         </h2>
         <p className="text-white/60 text-center text-sm mb-6">
-          Fuegen Sie 2HEAL PhysioAssistent zu Ihrem Startbildschirm hinzu fuer
+          Fuegen Sie Unger PhysioAssistent zu Ihrem Startbildschirm hinzu fuer
           schnellen Zugriff.
         </p>
 

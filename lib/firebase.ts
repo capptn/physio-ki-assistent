@@ -71,21 +71,9 @@ export async function getFirebaseMessaging(): Promise<Messaging | undefined> {
   return messaging;
 }
 
-export async function requestNotificationPermission(): Promise<string | null> {
+// Get FCM token WITHOUT requesting permission — only call when permission is already granted
+export async function getFCMToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
-
-  const supported = await isMessagingSupported();
-  if (!supported) {
-    console.log("Push notifications not supported in this browser");
-    return null;
-  }
-
-  const permission = await Notification.requestPermission();
-
-  if (permission !== "granted") {
-    console.log("Notification permission denied");
-    return null;
-  }
 
   const messaging = await getFirebaseMessaging();
   if (!messaging) return null;
@@ -93,12 +81,24 @@ export async function requestNotificationPermission(): Promise<string | null> {
   try {
     const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
     const token = await getToken(messaging, { vapidKey });
-    console.log("FCM Token:", token);
     return token;
   } catch (error) {
     console.error("Error getting FCM token:", error);
     return null;
   }
+}
+
+// Legacy: requests permission AND gets token — only call from a user gesture
+export async function requestNotificationPermission(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+
+  const supported = await isMessagingSupported();
+  if (!supported) return null;
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") return null;
+
+  return getFCMToken();
 }
 
 export async function onForegroundMessage(

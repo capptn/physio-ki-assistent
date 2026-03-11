@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "2HEAL",
+    title: "Unger",
   },
   formatDetection: {
     telephone: true,

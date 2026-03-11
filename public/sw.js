@@ -1,4 +1,4 @@
-const CACHE_NAME = "2heal-physio-v1";
+const CACHE_NAME = "Unger-physio-v1";
 const urlsToCache = ["/", "/manifest.json"];
 
 // Install event

@@ -46,66 +46,104 @@ export function NotificationContextProvider({
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  const initializeNotifications = useCallback(async () => {
+  // Register SW and set up foreground listener — does NOT request permission
+  const setupMessaging = useCallback(async (): Promise<
+    (() => void) | undefined
+  > => {
     const supported = await isMessagingSupported();
-    if (!supported) {
-      setPermission("unsupported");
-      return;
-    }
+    if (!supported) return undefined;
 
     if ("serviceWorker" in navigator) {
       try {
-        const registration = await navigator.serviceWorker.register(
+        const swUrl = new URL(
           "/firebase-messaging-sw.js",
+          window.location.origin,
         );
-
-        registration.active?.postMessage({
-          type: "FIREBASE_CONFIG",
-          config: {
-            apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-            authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-            messagingSenderId:
-              process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-            appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-          },
-        });
+        swUrl.searchParams.set(
+          "apiKey",
+          process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+        );
+        swUrl.searchParams.set(
+          "authDomain",
+          process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+        );
+        swUrl.searchParams.set(
+          "projectId",
+          process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
+        );
+        swUrl.searchParams.set(
+          "storageBucket",
+          process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+        );
+        swUrl.searchParams.set(
+          "messagingSenderId",
+          process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+        );
+        swUrl.searchParams.set(
+          "appId",
+          process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
+        );
+        await navigator.serviceWorker.register(swUrl.toString());
       } catch (error) {
         console.error("Firebase SW registration failed:", error);
       }
     }
 
-    const token = await requestNotificationPermission();
-    if (token) {
-      setFcmToken(token);
-      console.log("FCM Token for Firebase Console:", token);
-    }
+    const token = await import("@/lib/firebase").then((m) => m.getFCMToken());
+    if (token) setFcmToken(token);
 
-    await onForegroundMessage(() => {});
+    const unsubscribe = await onForegroundMessage((payload: unknown) => {
+      const data = payload as {
+        notification?: { title?: string; body?: string };
+      };
+      if (
+        data.notification &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        new Notification(data.notification.title || "Unger", {
+          body: data.notification.body || "Neue Nachricht",
+          icon: "/icons/icon-192x192.png",
+        });
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
+  // On mount: check support + permission, auto-setup if already granted
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const checkSupport = async () => {
+    let unsubscribe: (() => void) | undefined;
+
+    const init = async () => {
       const supported = await isMessagingSupported();
       if (!supported) {
         setPermission("unsupported");
         return;
       }
 
-      if ("Notification" in window) {
-        setPermission(Notification.permission);
+      if (!("Notification" in window)) {
+        setPermission("unsupported");
+        return;
+      }
 
-        if (Notification.permission === "granted") {
-          initializeNotifications();
-        }
+      const currentPermission = Notification.permission;
+      setPermission(currentPermission);
+
+      // Only setup messaging if permission is already granted (no prompt needed)
+      if (currentPermission === "granted") {
+        unsubscribe = await setupMessaging();
       }
     };
 
-    checkSupport();
-  }, [initializeNotifications]);
+    init();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [setupMessaging]);
 
   const openPrompt = useCallback(() => {
     setShowPrompt(true);
@@ -115,14 +153,19 @@ export function NotificationContextProvider({
     setShowPrompt(false);
   }, []);
 
+  // Called only from an explicit user gesture (button click)
   const enableNotifications = useCallback(async () => {
-    localStorage.setItem("2heal_notification_prompted", "true");
+    localStorage.setItem("Unger_notification_prompted", "true");
     setShowPrompt(false);
-    await initializeNotifications();
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setPermission(Notification.permission);
+
+    // requestPermission MUST be called directly here (user gesture context)
+    const perm = await Notification.requestPermission();
+    setPermission(perm);
+
+    if (perm === "granted") {
+      await setupMessaging();
     }
-  }, [initializeNotifications]);
+  }, [setupMessaging]);
 
   return (
     <NotificationContext.Provider

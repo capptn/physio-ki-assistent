@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { X, Bell, BellRing } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  requestNotificationPermission,
-  onForegroundMessage,
-} from "@/lib/firebase";
+import { useNotifications } from "@/lib/notification-context";
+import { onForegroundMessage } from "@/lib/firebase";
 
 interface ForegroundNotification {
   id: string;
@@ -15,122 +13,47 @@ interface ForegroundNotification {
 }
 
 export function NotificationProvider() {
-  const [permission, setPermission] = useState<NotificationPermission | null>(
-    null,
-  );
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const { showPrompt, closePrompt, enableNotifications, permission } =
+    useNotifications();
   const [foregroundNotification, setForegroundNotification] =
     useState<ForegroundNotification | null>(null);
 
   useEffect(() => {
-    console.log("check for propmting");
-    if (typeof window === "undefined") return;
+    if (permission !== "granted") return;
 
-    // Check if notifications are supported
-    if (!("Notification" in window)) return;
+    let unsubscribe: (() => void) | undefined;
 
-    // Check current permission
-    setPermission(Notification.permission);
-
-    // Check if user has already been prompted
-    const hasBeenPrompted = localStorage.getItem("2heal_notification_prompted");
-    const isStandalone = window.matchMedia(
-      "(display-mode: standalone)",
-    ).matches;
-
-    console.log("hasBeenPrompted: " + hasBeenPrompted);
-    console.log("Notification.permission: " + Notification.permission);
-    console.log("isStandalone: " + isStandalone);
-
-    // Show prompt after a delay if not prompted before and app is installed
-    if (
-      !hasBeenPrompted &&
-      (Notification.permission === "default" ||
-        Notification.permission === "denied")
-    ) {
-      console.log("SHOW PROMPT");
-      const timer = setTimeout(() => {
-        if (isStandalone) {
-          console.log("SHOW NOW");
-          setShowPrompt(true);
-        } else {
-          setShowPrompt(true);
-        }
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-
-    // If already granted, get token and setup listener
-    if (Notification.permission === "granted") {
-      initializeNotifications();
-    }
-  }, []);
-
-  const initializeNotifications = useCallback(async () => {
-    // Register Firebase messaging service worker
-    if ("serviceWorker" in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.register(
-          "/firebase-messaging-sw.js",
-        );
-
-        // Send Firebase config to service worker
-        registration.active?.postMessage({
-          type: "FIREBASE_CONFIG",
-          config: {
-            apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-            authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-            messagingSenderId:
-              process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-            appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-          },
+    const setupForegroundHandler = async () => {
+      unsubscribe = await onForegroundMessage((payload: unknown) => {
+        const typedPayload = payload as {
+          notification?: { title?: string; body?: string };
+        };
+        setForegroundNotification({
+          id: Date.now().toString(),
+          title: typedPayload.notification?.title || "Unger",
+          body: typedPayload.notification?.body || "",
         });
-      } catch (error) {
-        console.error("Firebase SW registration failed:", error);
-      }
-    }
 
-    const token = await requestNotificationPermission();
-    if (token) {
-      setFcmToken(token);
-      // Here you could send the token to your backend to store it
-      console.log("FCM Token for Firebase Console:", token);
-    }
-
-    // Listen for foreground messages
-    const unsubscribe = onForegroundMessage((payload: unknown) => {
-      const typedPayload = payload as {
-        notification?: { title?: string; body?: string };
-      };
-      setForegroundNotification({
-        id: Date.now().toString(),
-        title: typedPayload.notification?.title || "2HEAL",
-        body: typedPayload.notification?.body || "",
+        setTimeout(() => {
+          setForegroundNotification(null);
+        }, 5000);
       });
+    };
 
-      // Auto-hide after 5 seconds
-      setTimeout(() => {
-        setForegroundNotification(null);
-      }, 5000);
-    });
+    setupForegroundHandler();
 
-    return unsubscribe;
-  }, []);
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [permission]);
 
   const handleEnableNotifications = async () => {
-    localStorage.setItem("2heal_notification_prompted", "true");
-    setShowPrompt(false);
-
-    await initializeNotifications();
-    setPermission(Notification.permission);
+    await enableNotifications();
   };
 
   const handleDismissPrompt = () => {
-    localStorage.setItem("2heal_notification_prompted", "true");
-    setShowPrompt(false);
+    localStorage.setItem("Unger_notification_prompted", "true");
+    closePrompt();
   };
 
   const dismissForegroundNotification = () => {
@@ -153,7 +76,7 @@ export function NotificationProvider() {
                 </h3>
                 <p className="text-sm text-zinc-400 mb-4">
                   Erhalten Sie wichtige Updates zu Terminen, Tipps und
-                  Neuigkeiten von 2HEAL.
+                  Neuigkeiten von Unger.
                 </p>
                 <div className="flex gap-3">
                   <Button
@@ -201,11 +124,6 @@ export function NotificationProvider() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Debug: Show FCM Token in console */}
-      {fcmToken && (
-        <div className="hidden">FCM Token available - check console</div>
       )}
     </>
   );
