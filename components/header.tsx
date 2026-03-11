@@ -9,12 +9,15 @@ import {
   Copy,
   Check,
   X,
+  LogOut,
 } from "lucide-react";
 import { useNotifications } from "@/lib/notification-context";
 
 export function Header() {
-  const { permission, fcmToken, openPrompt } = useNotifications();
+  const { permission, fcmToken, openPrompt, disableNotifications } =
+    useNotifications();
   const [showTokenModal, setShowTokenModal] = useState(false);
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const copyToken = async () => {
@@ -66,6 +69,12 @@ export function Header() {
     }
   };
 
+  const handleDisable = async () => {
+    await disableNotifications();
+    setShowTokenModal(false);
+    setShowDisableConfirm(false);
+  };
+
   return (
     <header className="bg-black text-white sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -78,7 +87,7 @@ export function Header() {
           </div>
           <div>
             <h1 className="font-bold text-lg sm:text-xl tracking-tight">
-              Unger
+              2HEAL
             </h1>
             <p className="text-xs sm:text-sm text-white/60 font-medium">
               PhysioAssistent
@@ -154,7 +163,38 @@ export function Header() {
                   </>
                 )}
               </button>
+
+              <button
+                onClick={() => setShowDisableConfirm(true)}
+                className="mt-3 w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 font-bold transition-all hover:bg-red-500/30"
+              >
+                <LogOut className="w-5 h-5" />
+                Deaktivieren
+              </button>
             </div>
+
+            {/* Disable Confirmation */}
+            {showDisableConfirm && (
+              <div className="p-4 border-t border-white/10 bg-red-500/10">
+                <p className="text-sm text-white/80 mb-3">
+                  Benachrichtigungen wirklich deaktivieren?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDisable}
+                    className="flex-1 py-2 px-3 rounded-lg bg-red-500/30 text-red-400 font-bold hover:bg-red-500/50 transition-colors"
+                  >
+                    Ja, deaktivieren
+                  </button>
+                  <button
+                    onClick={() => setShowDisableConfirm(false)}
+                    className="flex-1 py-2 px-3 rounded-lg bg-white/10 text-white font-bold hover:bg-white/20 transition-colors"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

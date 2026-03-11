@@ -1,5 +1,6 @@
 "use client";
 
+// Notification context for managing push notification state
 import {
   createContext,
   useContext,
@@ -21,6 +22,7 @@ interface NotificationContextType {
   openPrompt: () => void;
   closePrompt: () => void;
   enableNotifications: () => Promise<void>;
+  disableNotifications: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -101,7 +103,7 @@ export function NotificationContextProvider({
         "Notification" in window &&
         Notification.permission === "granted"
       ) {
-        new Notification(data.notification.title || "Unger", {
+        new Notification(data.notification.title || "2HEAL", {
           body: data.notification.body || "Neue Nachricht",
           icon: "/icons/icon-192x192.png",
         });
@@ -118,6 +120,14 @@ export function NotificationContextProvider({
     let unsubscribe: (() => void) | undefined;
 
     const init = async () => {
+      // Check if user has manually disabled notifications
+      const isDisabled =
+        localStorage.getItem("2heal_notifications_disabled") === "true";
+      if (isDisabled) {
+        setPermission("default" as NotificationPermission);
+        return;
+      }
+
       const supported = await isMessagingSupported();
       if (!supported) {
         setPermission("unsupported");
@@ -155,7 +165,8 @@ export function NotificationContextProvider({
 
   // Called only from an explicit user gesture (button click)
   const enableNotifications = useCallback(async () => {
-    localStorage.setItem("Unger_notification_prompted", "true");
+    localStorage.setItem("2heal_notification_prompted", "true");
+    localStorage.removeItem("2heal_notifications_disabled");
     setShowPrompt(false);
 
     // requestPermission MUST be called directly here (user gesture context)
@@ -167,6 +178,42 @@ export function NotificationContextProvider({
     }
   }, [setupMessaging]);
 
+  // Disable notifications and unsubscribe from Firebase
+  const disableNotifications = useCallback(async () => {
+    setFcmToken(null);
+
+    // Set disabled flag - this persists across refreshes
+    localStorage.setItem("2heal_notifications_disabled", "true");
+    localStorage.removeItem("2heal_notification_prompted");
+
+    // Unregister all service workers
+    if ("serviceWorker" in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      } catch (error) {
+        console.error("Error unregistering SW:", error);
+      }
+    }
+
+    // Clear IndexedDB firebase-messaging-store
+    try {
+      const databases = await indexedDB.databases();
+      for (const db of databases) {
+        if (db.name && db.name.includes("firebase")) {
+          indexedDB.deleteDatabase(db.name);
+        }
+      }
+    } catch (error) {
+      // indexedDB.databases() not supported in all browsers
+    }
+
+    // Reset permission state to 'default' so the prompt will show again if needed
+    setPermission("default" as NotificationPermission);
+  }, []);
+
   return (
     <NotificationContext.Provider
       value={{
@@ -176,6 +223,7 @@ export function NotificationContextProvider({
         openPrompt,
         closePrompt,
         enableNotifications,
+        disableNotifications,
       }}
     >
       {children}
