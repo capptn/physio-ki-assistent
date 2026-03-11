@@ -3,6 +3,7 @@ import { Roboto } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { PWARegister } from "@/components/pwa-register";
 import { InstallPrompt } from "@/components/install-prompt";
+import { NotificationProvider } from "@/components/notification-provider";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -59,6 +60,7 @@ export default function RootLayout({
         {children}
         <InstallPrompt />
         <PWARegister />
+        <NotificationProvider />
         <Analytics />
       </body>
     </html>
