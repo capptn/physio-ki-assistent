@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Roboto } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { PWARegister } from "@/components/pwa-register";
+import { InstallPrompt } from "@/components/install-prompt";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -56,6 +57,7 @@ export default function RootLayout({
     <html lang="de" className="bg-background">
       <body className={`${roboto.variable} font-sans antialiased`}>
         {children}
+        <InstallPrompt />
         <PWARegister />
         <Analytics />
       </body>
