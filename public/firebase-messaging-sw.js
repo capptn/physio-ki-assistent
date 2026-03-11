@@ -1,90 +1,79 @@
-"use client";
+// Firebase Messaging Service Worker
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js",
+);
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js",
+);
 
-import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import {
-  getMessaging,
-  getToken,
-  onMessage,
-  Messaging,
-} from "firebase/messaging";
+// Firebase config will be injected via postMessage from the main app
+let firebaseConfig = null;
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-let app;
-let messaging;
-
-export function getFirebaseApp() {
-  if (typeof window === "undefined") return undefined;
-
-  if (!app && getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-  } else if (!app) {
-    app = getApps()[0];
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "FIREBASE_CONFIG") {
+    firebaseConfig = event.data.config;
+    initializeFirebase();
   }
+});
 
-  return app;
-}
+function initializeFirebase() {
+  if (!firebaseConfig) return;
 
-export function getFirebaseMessaging() {
-  if (typeof window === "undefined") return undefined;
+  firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
 
-  const app = getFirebaseApp();
-  if (!app) return undefined;
+  // Handle background messages
+  messaging.onBackgroundMessage((payload) => {
+    console.log("Background message received:", payload);
 
-  if (!messaging) {
-    try {
-      messaging = getMessaging(app);
-    } catch (error) {
-      console.error("Firebase Messaging not supported:", error);
-      return undefined;
-    }
-  }
+    const notificationTitle =
+      payload.notification?.title || "2HEAL Physiotherapie";
+    const notificationOptions = {
+      body: payload.notification?.body || "Sie haben eine neue Nachricht",
+      icon: "/icons/icon-192x192.png",
+      badge: "/icons/icon-72x72.png",
+      tag: payload.data?.tag || "default",
+      data: payload.data,
+      vibrate: [100, 50, 100],
+      actions: [
+        {
+          action: "open",
+          title: "Öffnen",
+        },
+        {
+          action: "close",
+          title: "Schließen",
+        },
+      ],
+    };
 
-  return messaging;
-}
-
-export async function requestNotificationPermission() {
-  if (typeof window === "undefined") return null;
-
-  if (!("Notification" in window)) {
-    console.log("Notifications not supported");
-    return null;
-  }
-
-  const permission = await Notification.requestPermission();
-
-  if (permission !== "granted") {
-    console.log("Notification permission denied");
-    return null;
-  }
-
-  const messaging = getFirebaseMessaging();
-  if (!messaging) return null;
-
-  try {
-    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-    const token = await getToken(messaging, { vapidKey });
-    console.log("FCM Token:", token);
-    return token;
-  } catch (error) {
-    console.error("Error getting FCM token:", error);
-    return null;
-  }
-}
-
-export function onForegroundMessage(callback) {
-  const messaging = getFirebaseMessaging();
-  if (!messaging) return () => {};
-
-  return onMessage(messaging, (payload) => {
-    console.log("Foreground message received:", payload);
-    callback(payload);
+    self.registration.showNotification(notificationTitle, notificationOptions);
   });
 }
+
+// Handle notification click
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  if (event.action === "close") return;
+
+  const urlToOpen = event.notification.data?.url || "/";
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((windowClients) => {
+        // Check if there's already a window open
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && "focus" in client) {
+            client.navigate(urlToOpen);
+            return client.focus();
+          }
+        }
+        // If no window is open, open a new one
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      }),
+  );
+});

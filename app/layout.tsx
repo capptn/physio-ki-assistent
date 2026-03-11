@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { PWARegister } from "@/components/pwa-register";
 import { InstallPrompt } from "@/components/install-prompt";
 import { NotificationProvider } from "@/components/notification-provider";
+import { NotificationContextProvider } from "@/lib/notification-context";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -57,10 +58,13 @@ export default function RootLayout({
   return (
     <html lang="de" className="bg-background">
       <body className={`${roboto.variable} font-sans antialiased`}>
-        {children}
-        <InstallPrompt />
+        <NotificationContextProvider>
+          {children}
+          <InstallPrompt />
+          <NotificationProvider />
+        </NotificationContextProvider>
         <PWARegister />
-        <NotificationProvider />
+
         <Analytics />
       </body>
     </html>
