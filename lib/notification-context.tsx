@@ -1,91 +1,114 @@
-'use client'
+"use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
-import { requestNotificationPermission, onForegroundMessage } from '@/lib/firebase'
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  ReactNode,
+} from "react";
+import {
+  requestNotificationPermission,
+  onForegroundMessage,
+} from "@/lib/firebase";
 
 interface NotificationContextType {
-  permission: NotificationPermission | 'unsupported' | null
-  fcmToken: string | null
-  showPrompt: boolean
-  openPrompt: () => void
-  closePrompt: () => void
-  enableNotifications: () => Promise<void>
+  permission: NotificationPermission | "unsupported" | null;
+  fcmToken: string | null;
+  showPrompt: boolean;
+  openPrompt: () => void;
+  closePrompt: () => void;
+  enableNotifications: () => Promise<void>;
 }
 
-const NotificationContext = createContext<NotificationContextType | null>(null)
+const NotificationContext = createContext<NotificationContextType | null>(null);
 
 export function useNotifications() {
-  const context = useContext(NotificationContext)
+  const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error('useNotifications must be used within NotificationContextProvider')
+    throw new Error(
+      "useNotifications must be used within NotificationContextProvider",
+    );
   }
-  return context
+  return context;
 }
 
-export function NotificationContextProvider({ children }: { children: ReactNode }) {
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported' | null>(null)
-  const [fcmToken, setFcmToken] = useState<string | null>(null)
-  const [showPrompt, setShowPrompt] = useState(false)
+export function NotificationContextProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [permission, setPermission] = useState<
+    NotificationPermission | "unsupported" | null
+  >(null);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
 
   const initializeNotifications = useCallback(async () => {
-    if ('serviceWorker' in navigator) {
+    if ("serviceWorker" in navigator) {
       try {
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
-        
+        const registration = await navigator.serviceWorker.register(
+          "/firebase-messaging-sw.js",
+        );
+
         registration.active?.postMessage({
-          type: 'FIREBASE_CONFIG',
+          type: "FIREBASE_CONFIG",
           config: {
             apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
             authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
             storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-            messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+            messagingSenderId:
+              process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
             appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-          }
-        })
+          },
+        });
       } catch (error) {
-        console.error('Firebase SW registration failed:', error)
+        console.error("Firebase SW registration failed:", error);
       }
     }
 
-    const token = await requestNotificationPermission()
+    const token = await requestNotificationPermission();
     if (token) {
-      setFcmToken(token)
-      console.log('FCM Token for Firebase Console:', token)
+      setFcmToken(token);
+      console.log("FCM Token for Firebase Console:", token);
     }
 
-    onForegroundMessage(() => {})
-  }, [])
+    onForegroundMessage(() => {});
+  }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === "undefined") return;
 
-    if (!('Notification' in window)) {
-      setPermission('unsupported')
-      return
+    if (!("Notification" in window)) {
+      setPermission("unsupported");
+      return;
     }
 
-    setPermission(Notification.permission)
+    setPermission(Notification.permission);
 
-    if (Notification.permission === 'granted') {
-      initializeNotifications()
+    if (Notification.permission === "granted") {
+      initializeNotifications();
     }
-  }, [initializeNotifications])
+  }, [initializeNotifications]);
 
   const openPrompt = useCallback(() => {
-    setShowPrompt(true)
-  }, [])
+    setShowPrompt(true);
+  }, []);
 
   const closePrompt = useCallback(() => {
-    setShowPrompt(false)
-  }, [])
+    setShowPrompt(false);
+  }, []);
 
   const enableNotifications = useCallback(async () => {
-    localStorage.setItem('2heal_notification_prompted', 'true')
-    setShowPrompt(false)
-    await initializeNotifications()
-    setPermission(Notification.permission)
-  }, [initializeNotifications])
+    localStorage.setItem("2heal_notification_prompted", "true");
+    setShowPrompt(false);
+    await initializeNotifications();
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPermission(Notification.permission);
+    }
+  }, [initializeNotifications]);
 
   return (
     <NotificationContext.Provider
@@ -100,5 +123,5 @@ export function NotificationContextProvider({ children }: { children: ReactNode 
     >
       {children}
     </NotificationContext.Provider>
-  )
+  );
 }
