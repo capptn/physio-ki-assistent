@@ -24,99 +24,108 @@ export function NotificationProvider() {
     useState<ForegroundNotification | null>(null);
 
   useEffect(() => {
+    console.log("check for propmting");
     if (typeof window === "undefined") return;
 
+    // Check if notifications are supported
     if (!("Notification" in window)) return;
 
+    // Check current permission
     setPermission(Notification.permission);
 
+    // Check if user has already been prompted
     const hasBeenPrompted = localStorage.getItem("2heal_notification_prompted");
-
     const isStandalone = window.matchMedia(
       "(display-mode: standalone)",
     ).matches;
 
-    console.log("hasBeenPrompted:", hasBeenPrompted);
-    console.log("Notification.permission:", Notification.permission);
-    console.log("isStandalone:", isStandalone);
+    console.log("hasBeenPrompted: " + hasBeenPrompted);
+    console.log("Notification.permission: " + Notification.permission);
+    console.log("isStandalone: " + isStandalone);
 
+    // Show prompt after a delay if not prompted before and app is installed
     if (
       !hasBeenPrompted &&
       (Notification.permission === "default" ||
         Notification.permission === "denied")
     ) {
+      console.log("SHOW PROMPT");
       const timer = setTimeout(() => {
-        setShowPrompt(true);
+        if (isStandalone) {
+          console.log("SHOW NOW");
+          setShowPrompt(true);
+        } else {
+          setShowPrompt(true);
+        }
       }, 2000);
-
       return () => clearTimeout(timer);
     }
 
+    // If already granted, get token and setup listener
     if (Notification.permission === "granted") {
       initializeNotifications();
     }
   }, []);
 
   const initializeNotifications = useCallback(async () => {
-    try {
-      // Service Worker registrieren
-      let registration: ServiceWorkerRegistration | undefined;
-
-      if ("serviceWorker" in navigator) {
-        registration = await navigator.serviceWorker.register(
+    // Register Firebase messaging service worker
+    if ("serviceWorker" in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.register(
           "/firebase-messaging-sw.js",
         );
 
-        await navigator.serviceWorker.ready;
-
-        console.log("Service Worker registered:", registration);
-      }
-
-      // Token holen
-      const token = await requestNotificationPermission();
-
-      if (token) {
-        setFcmToken(token);
-
-        console.log("FCM Token:", token);
-
-        // Hier könntest du den Token an dein Backend senden
-        // await saveToken(token)
-      }
-
-      // Foreground Listener
-      const unsubscribe = await onForegroundMessage((payload: unknown) => {
-        const typedPayload = payload as {
-          notification?: { title?: string; body?: string };
-        };
-
-        setForegroundNotification({
-          id: Date.now().toString(),
-          title: typedPayload.notification?.title || "2HEAL",
-          body: typedPayload.notification?.body || "",
+        // Send Firebase config to service worker
+        registration.active?.postMessage({
+          type: "FIREBASE_CONFIG",
+          config: {
+            apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+            authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+            messagingSenderId:
+              process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+            appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+          },
         });
+      } catch (error) {
+        console.error("Firebase SW registration failed:", error);
+      }
+    }
 
-        setTimeout(() => {
-          setForegroundNotification(null);
-        }, 5000);
+    const token = await requestNotificationPermission();
+    if (token) {
+      setFcmToken(token);
+      // Here you could send the token to your backend to store it
+      console.log("FCM Token for Firebase Console:", token);
+    }
+
+    // Listen for foreground messages
+    const unsubscribe = onForegroundMessage((payload: unknown) => {
+      const typedPayload = payload as {
+        notification?: { title?: string; body?: string };
+      };
+      setForegroundNotification({
+        id: Date.now().toString(),
+        title: typedPayload.notification?.title || "2HEAL",
+        body: typedPayload.notification?.body || "",
       });
 
-      return unsubscribe;
-    } catch (error) {
-      console.error("Notification initialization failed:", error);
-    }
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        setForegroundNotification(null);
+      }, 5000);
+    });
+
+    return unsubscribe;
   }, []);
 
   const handleEnableNotifications = async () => {
     localStorage.setItem("2heal_notification_prompted", "true");
-
     setShowPrompt(false);
 
-    const unsubscribe = await initializeNotifications();
-
+    await initializeNotifications();
     setPermission(Notification.permission);
-
-    return unsubscribe;
   };
 
   const handleDismissPrompt = () => {
@@ -138,17 +147,14 @@ export function NotificationProvider() {
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#57ff55] to-[#4826ae] flex items-center justify-center shrink-0">
                 <Bell className="w-6 h-6 text-black" />
               </div>
-
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-white mb-1">
                   Benachrichtigungen aktivieren
                 </h3>
-
                 <p className="text-sm text-zinc-400 mb-4">
                   Erhalten Sie wichtige Updates zu Terminen, Tipps und
                   Neuigkeiten von 2HEAL.
                 </p>
-
                 <div className="flex gap-3">
                   <Button
                     onClick={handleEnableNotifications}
@@ -156,7 +162,6 @@ export function NotificationProvider() {
                   >
                     Aktivieren
                   </Button>
-
                   <Button
                     onClick={handleDismissPrompt}
                     variant="outline"
@@ -179,17 +184,14 @@ export function NotificationProvider() {
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#57ff55] to-[#4826ae] flex items-center justify-center shrink-0">
                 <BellRing className="w-5 h-5 text-black" />
               </div>
-
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-white truncate">
                   {foregroundNotification.title}
                 </h4>
-
                 <p className="text-sm text-zinc-400 line-clamp-2">
                   {foregroundNotification.body}
                 </p>
               </div>
-
               <button
                 onClick={dismissForegroundNotification}
                 className="text-zinc-500 hover:text-white transition-colors"
@@ -201,7 +203,10 @@ export function NotificationProvider() {
         </div>
       )}
 
-      {fcmToken && <div className="hidden">FCM Token available</div>}
+      {/* Debug: Show FCM Token in console */}
+      {fcmToken && (
+        <div className="hidden">FCM Token available - check console</div>
+      )}
     </>
   );
 }
