@@ -1,7 +1,27 @@
-'use client'
+"use client";
 
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
-import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging'
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  Messaging,
+  isSupported,
+} from "firebase/messaging";
+
+// Check if Firebase Messaging is supported in the current browser
+export async function isMessagingSupported(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (!("Notification" in window)) return false;
+  if (!("serviceWorker" in navigator)) return false;
+  if (!("PushManager" in window)) return false;
+
+  try {
+    return await isSupported();
+  } catch {
+    return false;
+  }
+}
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,76 +30,85 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-}
+};
 
-let app: FirebaseApp | undefined
-let messaging: Messaging | undefined
+let app: FirebaseApp | undefined;
+let messaging: Messaging | undefined;
 
 export function getFirebaseApp() {
-  if (typeof window === 'undefined') return undefined
-  
+  if (typeof window === "undefined") return undefined;
+
   if (!app && getApps().length === 0) {
-    app = initializeApp(firebaseConfig)
+    app = initializeApp(firebaseConfig);
   } else if (!app) {
-    app = getApps()[0]
+    app = getApps()[0];
   }
-  
-  return app
+
+  return app;
 }
 
-export function getFirebaseMessaging() {
-  if (typeof window === 'undefined') return undefined
-  
-  const app = getFirebaseApp()
-  if (!app) return undefined
-  
+export async function getFirebaseMessaging(): Promise<Messaging | undefined> {
+  if (typeof window === "undefined") return undefined;
+
+  const supported = await isMessagingSupported();
+  if (!supported) {
+    console.log("Firebase Messaging is not supported in this browser");
+    return undefined;
+  }
+
+  const app = getFirebaseApp();
+  if (!app) return undefined;
+
   if (!messaging) {
     try {
-      messaging = getMessaging(app)
+      messaging = getMessaging(app);
     } catch (error) {
-      console.error('Firebase Messaging not supported:', error)
-      return undefined
+      console.error("Firebase Messaging not supported:", error);
+      return undefined;
     }
   }
-  
-  return messaging
+
+  return messaging;
 }
 
 export async function requestNotificationPermission(): Promise<string | null> {
-  if (typeof window === 'undefined') return null
-  
-  if (!('Notification' in window)) {
-    console.log('Notifications not supported')
-    return null
+  if (typeof window === "undefined") return null;
+
+  const supported = await isMessagingSupported();
+  if (!supported) {
+    console.log("Push notifications not supported in this browser");
+    return null;
   }
 
-  const permission = await Notification.requestPermission()
-  
-  if (permission !== 'granted') {
-    console.log('Notification permission denied')
-    return null
+  const permission = await Notification.requestPermission();
+
+  if (permission !== "granted") {
+    console.log("Notification permission denied");
+    return null;
   }
 
-  const messaging = getFirebaseMessaging()
-  if (!messaging) return null
+  const messaging = await getFirebaseMessaging();
+  if (!messaging) return null;
 
   try {
-    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
-    const token = await getToken(messaging, { vapidKey })
-    console.log('FCM Token:', token)
-    return token
+    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+    const token = await getToken(messaging, { vapidKey });
+    console.log("FCM Token:", token);
+    return token;
   } catch (error) {
-    console.error('Error getting FCM token:', error)
-    return null
+    console.error("Error getting FCM token:", error);
+    return null;
   }
 }
 
-export function onForegroundMessage(callback: (payload: unknown) => void) {
-  const messaging = getFirebaseMessaging()
-  if (!messaging) return () => {}
+export async function onForegroundMessage(
+  callback: (payload: unknown) => void,
+): Promise<() => void> {
+  const messaging = await getFirebaseMessaging();
+  if (!messaging) return () => {};
 
-  return onMessage(messaging, (payload:any) => {
-    console.log('Foreground message received:', payload)
-    callback(payload)
-  })
+  return onMessage(messaging, (payload) => {
+    console.log("Foreground message received:", payload);
+    callback(payload);
+  });
 }

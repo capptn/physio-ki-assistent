@@ -11,6 +11,7 @@ import {
 import {
   requestNotificationPermission,
   onForegroundMessage,
+  isMessagingSupported,
 } from "@/lib/firebase";
 
 interface NotificationContextType {
@@ -46,6 +47,12 @@ export function NotificationContextProvider({
   const [showPrompt, setShowPrompt] = useState(false);
 
   const initializeNotifications = useCallback(async () => {
+    const supported = await isMessagingSupported();
+    if (!supported) {
+      setPermission("unsupported");
+      return;
+    }
+
     if ("serviceWorker" in navigator) {
       try {
         const registration = await navigator.serviceWorker.register(
@@ -75,22 +82,29 @@ export function NotificationContextProvider({
       console.log("FCM Token for Firebase Console:", token);
     }
 
-    onForegroundMessage(() => {});
+    await onForegroundMessage(() => {});
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (!("Notification" in window)) {
-      setPermission("unsupported");
-      return;
-    }
+    const checkSupport = async () => {
+      const supported = await isMessagingSupported();
+      if (!supported) {
+        setPermission("unsupported");
+        return;
+      }
 
-    setPermission(Notification.permission);
+      if ("Notification" in window) {
+        setPermission(Notification.permission);
 
-    if (Notification.permission === "granted") {
-      initializeNotifications();
-    }
+        if (Notification.permission === "granted") {
+          initializeNotifications();
+        }
+      }
+    };
+
+    checkSupport();
   }, [initializeNotifications]);
 
   const openPrompt = useCallback(() => {
