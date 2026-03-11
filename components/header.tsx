@@ -1,10 +1,29 @@
 "use client";
 
-import { Sparkles, Bell, BellOff, BellRing } from "lucide-react";
+import { useState } from "react";
+import {
+  Sparkles,
+  Bell,
+  BellOff,
+  BellRing,
+  Copy,
+  Check,
+  X,
+} from "lucide-react";
 import { useNotifications } from "@/lib/notification-context";
 
 export function Header() {
-  const { permission, openPrompt } = useNotifications();
+  const { permission, fcmToken, openPrompt } = useNotifications();
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyToken = async () => {
+    if (fcmToken) {
+      await navigator.clipboard.writeText(fcmToken);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const getNotificationIcon = () => {
     if (permission === "granted") {
@@ -40,7 +59,9 @@ export function Header() {
       );
       return;
     }
-    if (permission !== "granted") {
+    if (permission === "granted") {
+      setShowTokenModal(true);
+    } else {
       openPrompt();
     }
   };
@@ -57,7 +78,7 @@ export function Header() {
           </div>
           <div>
             <h1 className="font-bold text-lg sm:text-xl tracking-tight">
-              2HEAL
+              Unger
             </h1>
             <p className="text-xs sm:text-sm text-white/60 font-medium">
               PhysioAssistent
@@ -89,6 +110,54 @@ export function Header() {
           </div>
         </div>
       </div>
+
+      {/* FCM Token Modal */}
+      {showTokenModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1a1a1a] rounded-2xl border border-white/10 w-full max-w-lg overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h3 className="font-bold text-lg">FCM Token</h3>
+              <button
+                onClick={() => setShowTokenModal(false)}
+                className="p-2 rounded-full hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <p className="text-sm text-white/60 mb-3">
+                Diesen Token kannst du in der Firebase Console verwenden, um
+                Push-Benachrichtigungen zu senden:
+              </p>
+
+              <div className="bg-black rounded-xl p-4 border border-white/10">
+                <code className="text-xs text-[#57ff55] break-all select-all">
+                  {fcmToken || "Kein Token verfügbar"}
+                </code>
+              </div>
+
+              <button
+                onClick={copyToken}
+                disabled={!fcmToken}
+                className="mt-4 w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-[#57ff55] to-[#4826ae] text-black font-bold transition-all hover:opacity-90 disabled:opacity-50"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Kopiert!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-5 h-5" />
+                    Token kopieren
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
