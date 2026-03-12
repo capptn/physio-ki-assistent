@@ -9,11 +9,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import {
-  requestNotificationPermission,
-  onForegroundMessage,
-  isMessagingSupported,
-} from "@/lib/firebase";
+import { isMessagingSupported } from "@/lib/firebase";
 
 interface NotificationContextType {
   permission: NotificationPermission | "unsupported" | null;
@@ -94,23 +90,8 @@ export function NotificationContextProvider({
     const token = await import("@/lib/firebase").then((m) => m.getFCMToken());
     if (token) setFcmToken(token);
 
-    const unsubscribe = await onForegroundMessage((payload: unknown) => {
-      const data = payload as {
-        notification?: { title?: string; body?: string };
-      };
-      if (
-        data.notification &&
-        "Notification" in window &&
-        Notification.permission === "granted"
-      ) {
-        new Notification(data.notification.title || "Unger", {
-          body: data.notification.body || "Neue Nachricht",
-          icon: "/icons/icon-192x192.png",
-        });
-      }
-    });
-
-    return unsubscribe;
+    // Foreground messages are handled by NotificationProvider
+    return undefined;
   }, []);
 
   // On mount: check support + permission, auto-setup if already granted
@@ -122,7 +103,7 @@ export function NotificationContextProvider({
     const init = async () => {
       // Check if user has manually disabled notifications
       const isDisabled =
-        localStorage.getItem("Unger_notifications_disabled") === "true";
+        localStorage.getItem("2heal_notifications_disabled") === "true";
       if (isDisabled) {
         setPermission("default" as NotificationPermission);
         return;
@@ -165,8 +146,8 @@ export function NotificationContextProvider({
 
   // Called only from an explicit user gesture (button click)
   const enableNotifications = useCallback(async () => {
-    localStorage.setItem("Unger_notification_prompted", "true");
-    localStorage.removeItem("Unger_notifications_disabled");
+    localStorage.setItem("2heal_notification_prompted", "true");
+    localStorage.removeItem("2heal_notifications_disabled");
     setShowPrompt(false);
 
     // requestPermission MUST be called directly here (user gesture context)
@@ -183,8 +164,8 @@ export function NotificationContextProvider({
     setFcmToken(null);
 
     // Set disabled flag - this persists across refreshes
-    localStorage.setItem("Unger_notifications_disabled", "true");
-    localStorage.removeItem("Unger_notification_prompted");
+    localStorage.setItem("2heal_notifications_disabled", "true");
+    localStorage.removeItem("2heal_notification_prompted");
 
     // Unregister all service workers
     if ("serviceWorker" in navigator) {

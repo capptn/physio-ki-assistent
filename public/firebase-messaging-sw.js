@@ -34,10 +34,8 @@ const messaging = firebase.messaging();
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log("[v0] Background message received:", payload);
-
   const notificationTitle =
-    payload.notification?.title || "Unger Physiotherapie";
+    payload.notification?.title || "2HEAL Physiotherapie";
   const notificationOptions = {
     body: payload.notification?.body || "Sie haben eine neue Nachricht",
     icon: "/icons/icon-192x192.png",
@@ -62,7 +60,6 @@ messaging.onBackgroundMessage((payload) => {
 
 // Handle notification click
 self.addEventListener("notificationclick", (event) => {
-  console.log("[v0] Notification clicked:", event);
   event.notification.close();
 
   if (event.action === "close") return;
@@ -86,27 +83,5 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// Handle push events directly
-self.addEventListener("push", (event) => {
-  console.log("[v0] Push event received:", event);
-
-  if (!event.data) return;
-
-  try {
-    const payload = event.data.json();
-    console.log("[v0] Push payload:", payload);
-
-    const title = payload.notification?.title || "Unger Physiotherapie";
-    const options = {
-      body: payload.notification?.body || "Neue Nachricht",
-      icon: "/icons/icon-192x192.png",
-      badge: "/icons/icon-72x72.png",
-      data: payload.data,
-      vibrate: [100, 50, 100],
-    };
-
-    event.waitUntil(self.registration.showNotification(title, options));
-  } catch (error) {
-    console.error("[v0] Error handling push:", error);
-  }
-});
+// Push events are handled by Firebase messaging.onBackgroundMessage above
+// No need for a separate push handler to avoid duplicate notifications
