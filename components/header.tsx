@@ -10,20 +10,23 @@ import {
   Check,
   X,
   LogOut,
-  User
+  User,
+  CreditCard,
+  XCircle,
 } from "lucide-react";
 import { useNotifications } from "@/lib/notification-context";
 import Image from "next/image";
-import { useAuth } from '@/lib/auth-context'
+import { useAuth } from "@/lib/auth-context";
 
 export function Header() {
   const { permission, fcmToken, openPrompt, disableNotifications } =
     useNotifications();
+  const { user, logout, isSubscribed, cancelSubscription } = useAuth();
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { user, logout } = useAuth()
-  const [showUserMenu, setShowUserMenu] = useState(false)
 
   const copyToken = async () => {
     if (fcmToken) {
@@ -129,25 +132,98 @@ export function Header() {
             >
               <User className="w-5 h-5 text-white/70" />
               <span className="hidden sm:inline text-sm font-medium text-white/80 max-w-[120px] truncate">
-                {user?.email?.split('@')[0] || 'Benutzer'}
+                {user?.email?.split("@")[0] || "Benutzer"}
               </span>
             </button>
 
             {showUserMenu && (
               <>
-                <div 
-                  className="fixed inset-0 z-40" 
+                <div
+                  className="fixed inset-0 z-40"
                   onClick={() => setShowUserMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div
+                  className="absolute right-0 top-full mt-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* User Info */}
                   <div className="p-4 border-b border-white/10">
-                    <p className="text-sm text-white/60">Angemeldet als</p>
-                    <p className="text-sm font-medium text-white truncate">{user?.email}</p>
+                    <p className="text-xs text-white/50 uppercase tracking-wider mb-1">
+                      Angemeldet als
+                    </p>
+                    <p className="text-sm font-medium text-white truncate">
+                      {user?.email}
+                    </p>
                   </div>
+
+                  {/* Subscription Status */}
+                  <div className="p-4 border-b border-white/10">
+                    <p className="text-xs text-white/50 uppercase tracking-wider mb-2">
+                      Abonnement
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-white/60" />
+                        <span className="text-sm text-white/80">
+                          PhysioAssistent
+                        </span>
+                      </div>
+                      {isSubscribed ? (
+                        <span className="text-xs px-2 py-1 rounded-full bg-[#57ff55]/20 text-[#57ff55] font-medium">
+                          Aktiv
+                        </span>
+                      ) : (
+                        <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/50 font-medium">
+                          Inaktiv
+                        </span>
+                      )}
+                    </div>
+                    {isSubscribed && (
+                      <p className="text-xs text-white/40 mt-1">
+                        9,99€ / Monat
+                      </p>
+                    )}
+                    {isSubscribed && !showCancelConfirm && (
+                      <button
+                        onClick={() => setShowCancelConfirm(true)}
+                        className="mt-3 w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Abo kündigen
+                      </button>
+                    )}
+                    {showCancelConfirm && (
+                      <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                        <p className="text-xs text-white/70 mb-2">
+                          Abo wirklich kündigen? Du verlierst sofort den Zugang.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              cancelSubscription();
+                              setShowCancelConfirm(false);
+                              setShowUserMenu(false);
+                            }}
+                            className="flex-1 py-1.5 px-2 rounded-lg bg-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/50 transition-colors"
+                          >
+                            Ja, kündigen
+                          </button>
+                          <button
+                            onClick={() => setShowCancelConfirm(false)}
+                            className="flex-1 py-1.5 px-2 rounded-lg bg-white/10 text-white text-xs font-bold hover:bg-white/20 transition-colors"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Logout */}
                   <button
                     onClick={() => {
-                      logout()
-                      setShowUserMenu(false)
+                      logout();
+                      setShowUserMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-400 hover:bg-red-500/10 transition-colors"
                   >

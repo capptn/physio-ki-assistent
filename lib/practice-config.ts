@@ -1,9 +1,9 @@
 export const PRACTICE_INFO = {
   name: 'PhysioTherapie Praxis',
-  phone: '+49 (123) 456789',
-  email: 'info@physiotherapie-praxis.de',
-  address: 'Musterstrasse 123, 10115 Berlin',
-  website: 'www.physiotherapie-praxis.de',
+  phone: '+49 2373 9709153',
+  email: 'info@p2heal.de',
+  address: 'Papenhausenstrasse 11a 58706 Menden',
+  website: 'www.2heal.de',
   hours: {
     monday: '09:00 - 18:00',
     tuesday: '09:00 - 18:00',
