@@ -10,6 +10,7 @@ export default function HomePage() {
         <main className="flex flex-col h-dvh">
           <Header />
           <Chat />
+          <div className="safe-bottom"></div>
         </main>
       </SubscriptionGuard>
     </AuthGuard>

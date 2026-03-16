@@ -167,7 +167,7 @@ export function Chat() {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-black via-black to-[#0a0a0a]">
+    <div className=" flex flex-col h-full bg-gradient-to-b from-black via-black to-[#0a0a0a]">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-3xl mx-auto space-y-6">

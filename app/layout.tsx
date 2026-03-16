@@ -5,7 +5,7 @@ import { PWARegister } from "@/components/pwa-register";
 import { InstallPrompt } from "@/components/install-prompt";
 import { NotificationProvider } from "@/components/notification-provider";
 import { NotificationContextProvider } from "@/lib/notification-context";
-import { AuthProvider } from '@/lib/auth-context'
+import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -39,7 +39,12 @@ export const metadata: Metadata = {
   },
   other: {
     "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
   },
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#000000" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
 };
 
 export const viewport: Viewport = {
@@ -57,14 +62,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de" className="bg-background">
-      <body className={`${roboto.variable} font-sans antialiased`}>
+    <html lang="de" className="bg-black">
+      <body className={`${roboto.variable} font-sans antialiased bg-black`}>
         <AuthProvider>
-        <NotificationContextProvider>
-          {children}
-          <InstallPrompt />
-          <NotificationProvider />
-        </NotificationContextProvider>
+          <NotificationContextProvider>
+            {children}
+            <InstallPrompt />
+            <NotificationProvider />
+          </NotificationContextProvider>
         </AuthProvider>
         <PWARegister />
 
