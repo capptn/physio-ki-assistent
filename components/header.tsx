@@ -12,6 +12,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useNotifications } from "@/lib/notification-context";
+import Image from "next/image";
 
 export function Header() {
   const { permission, fcmToken, openPrompt, disableNotifications } =
@@ -79,19 +80,24 @@ export function Header() {
     <header className="bg-black text-white sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#57ff55] to-[#4826ae] flex items-center justify-center shadow-lg shadow-[#57ff55]/20">
-            <Sparkles
-              className="w-5 h-5 sm:w-6 sm:h-6 text-black"
-              strokeWidth={2}
+          <div className="flex items-center gap-3">
+            {/* App Icon */}
+            <Image
+              src="/icons/icon-256x256.png"
+              alt="App Icon"
+              width={40}
+              height={40}
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl shadow-lg"
             />
-          </div>
-          <div>
-            <h1 className="font-bold text-lg sm:text-xl tracking-tight">
-              Unger
-            </h1>
-            <p className="text-xs sm:text-sm text-white/60 font-medium">
-              PhysioAssistent
-            </p>
+
+            {/* Firmenlogo */}
+            <Image
+              src="/2HEAL_complete_on_black.png"
+              alt="Firmenlogo"
+              width={180}
+              height={40}
+              className="h-10 sm:h-10 w-auto"
+            />
           </div>
         </div>
 
