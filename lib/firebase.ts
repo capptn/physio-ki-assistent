@@ -1,25 +1,28 @@
-"use client";
+'use client'
 
-import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import {
-  getMessaging,
-  getToken,
-  onMessage,
-  Messaging,
-  isSupported,
-} from "firebase/messaging";
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
+import { getMessaging, getToken, onMessage, Messaging, isSupported } from 'firebase/messaging'
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User,
+  Auth
+} from 'firebase/auth'
 
 // Check if Firebase Messaging is supported in the current browser
 export async function isMessagingSupported(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  if (!("Notification" in window)) return false;
-  if (!("serviceWorker" in navigator)) return false;
-  if (!("PushManager" in window)) return false;
-
+  if (typeof window === 'undefined') return false
+  if (!('Notification' in window)) return false
+  if (!('serviceWorker' in navigator)) return false
+  if (!('PushManager' in window)) return false
+  
   try {
-    return await isSupported();
+    return await isSupported()
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -30,85 +33,129 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+}
 
-let app: FirebaseApp | undefined;
-let messaging: Messaging | undefined;
+let app: FirebaseApp | undefined
+let messaging: Messaging | undefined
+let auth: Auth | undefined
 
 export function getFirebaseApp() {
-  if (typeof window === "undefined") return undefined;
-
+  if (typeof window === 'undefined') return undefined
+  
   if (!app && getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
+    app = initializeApp(firebaseConfig)
   } else if (!app) {
-    app = getApps()[0];
+    app = getApps()[0]
   }
-
-  return app;
+  
+  return app
 }
 
 export async function getFirebaseMessaging(): Promise<Messaging | undefined> {
-  if (typeof window === "undefined") return undefined;
-
-  const supported = await isMessagingSupported();
+  if (typeof window === 'undefined') return undefined
+  
+  const supported = await isMessagingSupported()
   if (!supported) {
-    console.log("Firebase Messaging is not supported in this browser");
-    return undefined;
+    console.log('Firebase Messaging is not supported in this browser')
+    return undefined
   }
-
-  const app = getFirebaseApp();
-  if (!app) return undefined;
-
+  
+  const app = getFirebaseApp()
+  if (!app) return undefined
+  
   if (!messaging) {
     try {
-      messaging = getMessaging(app);
+      messaging = getMessaging(app)
     } catch (error) {
-      console.error("Firebase Messaging not supported:", error);
-      return undefined;
+      console.error('Firebase Messaging not supported:', error)
+      return undefined
     }
   }
-
-  return messaging;
+  
+  return messaging
 }
 
 // Get FCM token WITHOUT requesting permission — only call when permission is already granted
 export async function getFCMToken(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null
 
-  const messaging = await getFirebaseMessaging();
-  if (!messaging) return null;
+  const messaging = await getFirebaseMessaging()
+  if (!messaging) return null
 
   try {
-    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-    const token = await getToken(messaging, { vapidKey });
-    return token;
+    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+    const token = await getToken(messaging, { vapidKey })
+    return token
   } catch (error) {
-    console.error("Error getting FCM token:", error);
-    return null;
+    console.error('Error getting FCM token:', error)
+    return null
   }
 }
 
 // Legacy: requests permission AND gets token — only call from a user gesture
 export async function requestNotificationPermission(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null
+  
+  const supported = await isMessagingSupported()
+  if (!supported) return null
 
-  const supported = await isMessagingSupported();
-  if (!supported) return null;
+  const permission = await Notification.requestPermission()
+  if (permission !== 'granted') return null
 
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return null;
-
-  return getFCMToken();
+  return getFCMToken()
 }
 
-export async function onForegroundMessage(
-  callback: (payload: unknown) => void,
-): Promise<() => void> {
-  const messaging = await getFirebaseMessaging();
-  if (!messaging) return () => {};
+export async function onForegroundMessage(callback: (payload: unknown) => void): Promise<() => void> {
+  const messaging = await getFirebaseMessaging()
+  if (!messaging) return () => {}
 
   return onMessage(messaging, (payload) => {
-    console.log("Foreground message received:", payload);
-    callback(payload);
-  });
+    callback(payload)
+  })
 }
+
+// Auth functions
+export function getFirebaseAuth(): Auth | undefined {
+  if (typeof window === 'undefined') return undefined
+  
+  const app = getFirebaseApp()
+  if (!app) return undefined
+  
+  if (!auth) {
+    auth = getAuth(app)
+  }
+  
+  return auth
+}
+
+export async function signUp(email: string, password: string): Promise<User> {
+  const auth = getFirebaseAuth()
+  if (!auth) throw new Error('Auth not initialized')
+  
+  const result = await createUserWithEmailAndPassword(auth, email, password)
+  return result.user
+}
+
+export async function signIn(email: string, password: string): Promise<User> {
+  const auth = getFirebaseAuth()
+  if (!auth) throw new Error('Auth not initialized')
+  
+  const result = await signInWithEmailAndPassword(auth, email, password)
+  return result.user
+}
+
+export async function signOut(): Promise<void> {
+  const auth = getFirebaseAuth()
+  if (!auth) return
+  
+  await firebaseSignOut(auth)
+}
+
+export function onAuthChange(callback: (user: User | null) => void): () => void {
+  const auth = getFirebaseAuth()
+  if (!auth) return () => {}
+  
+  return onAuthStateChanged(auth, callback)
+}
+
+export type { User }

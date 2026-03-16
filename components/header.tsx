@@ -10,9 +10,11 @@ import {
   Check,
   X,
   LogOut,
+  User
 } from "lucide-react";
 import { useNotifications } from "@/lib/notification-context";
 import Image from "next/image";
+import { useAuth } from '@/lib/auth-context'
 
 export function Header() {
   const { permission, fcmToken, openPrompt, disableNotifications } =
@@ -20,6 +22,8 @@ export function Header() {
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { user, logout } = useAuth()
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   const copyToken = async () => {
     if (fcmToken) {
@@ -117,6 +121,43 @@ export function Header() {
                   : "Aktivieren"}
             </span>
           </button>
+          {/* User Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 border border-white/20 transition-all duration-200 hover:bg-white/20"
+            >
+              <User className="w-5 h-5 text-white/70" />
+              <span className="hidden sm:inline text-sm font-medium text-white/80 max-w-[120px] truncate">
+                {user?.email?.split('@')[0] || 'Benutzer'}
+              </span>
+            </button>
+
+            {showUserMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowUserMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="p-4 border-b border-white/10">
+                    <p className="text-sm text-white/60">Angemeldet als</p>
+                    <p className="text-sm font-medium text-white truncate">{user?.email}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logout()
+                      setShowUserMenu(false)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-400 hover:bg-red-500/10 transition-colors"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="font-medium">Abmelden</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Online Status */}
           <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm">
