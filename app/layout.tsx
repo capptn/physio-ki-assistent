@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Roboto } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
 import { PWARegister } from "@/components/pwa-register";
 import { InstallPrompt } from "@/components/install-prompt";
 import { NotificationProvider } from "@/components/notification-provider";
