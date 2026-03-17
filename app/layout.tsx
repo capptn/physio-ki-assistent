@@ -71,8 +71,6 @@ export default function RootLayout({
           </NotificationContextProvider>
         </AuthProvider>
         <PWARegister />
-
-        <Analytics />
       </body>
     </html>
   );
