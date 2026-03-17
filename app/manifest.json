@@ -1,22 +1,40 @@
 {
-  "name": "2Heal Physio Assitant",
-  "short_name": "2Heal Physio Assitant",
+  "name": "2HEAL PhysioAssistent",
+  "short_name": "2HEAL",
+  "description": "Ihr KI-Assistent für Physiotherapie-Fragen",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "scope": "/",
   "icons": [
     {
-      "src": "/web-app-manifest-192x192.png",
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/web-app-manifest-512x512.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
   ],
-  "background_color": "#000000",
-  "theme_color": "#000000",
-  "orientation": "portrait",
-  "display": "standalone"
+  "categories": ["health", "medical", "lifestyle"],
+  "lang": "de",
+  "dir": "ltr"
 }
