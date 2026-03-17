@@ -161,8 +161,8 @@ export function Chat() {
   };
 
   const suggestions = [
-    "Was hilft bei Rueckenschmerzen?",
-    "Welche Uebungen fuer die Schulter?",
+    "Was hilft bei Rückenschmerzen?",
+    "Welche Übungen für die Schulter?",
     "Wie vereinbare ich einen Termin?",
   ];
 
@@ -189,7 +189,7 @@ export function Chat() {
                 Wie kann ich helfen?
               </h2>
               <p className="text-white/50 max-w-md text-lg leading-relaxed">
-                Fragen Sie mich alles rund um Physiotherapie, Uebungen und
+                Fragen Sie mich alles rund um Physiotherapie, Übungen und
                 Behandlungen.
               </p>
               <div className="mt-10 flex flex-wrap justify-center gap-3">
@@ -294,7 +294,7 @@ export function Chat() {
           </Button>
         </form>
         <p className="text-xs text-white/30 text-center mt-4">
-          Dieser Chatbot ersetzt keine aerztliche Beratung.
+          Dieser Chatbot ersetzt keine ärztliche Beratung.
         </p>
       </div>
     </div>

@@ -13,12 +13,17 @@ import {
   User,
   CreditCard,
   XCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { useNotifications } from "@/lib/notification-context";
 import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
+import { usePathname, useRouter } from "next/navigation";
 
 export function Header() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const isHomePage = pathname === "/";
   const { permission, fcmToken, openPrompt, disableNotifications } =
     useNotifications();
   const { user, logout, isSubscribed, cancelSubscription } = useAuth();
@@ -87,6 +92,15 @@ export function Header() {
     <header className="bg-black text-white sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3 sm:gap-4">
+          {!isHomePage && (
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 border border-white/20 transition-all duration-200 hover:bg-white/20"
+              title="Zurück zur Startseite"
+            >
+              <ArrowLeft className="w-5 h-5 text-white/70" />
+            </button>
+          )}
           <div className="flex items-center gap-3">
             {/* App Icon */}
             <Image

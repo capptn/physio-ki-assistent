@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { Sparkles, Check, Loader2, AlertCircle } from "lucide-react";
+import { Sparkles, Check, Loader2, AlertCircle, X } from "lucide-react";
 
 // Set to false for production
 const ENABLE_TEST_MODE = true;
@@ -26,7 +26,6 @@ export default function SubscriptionPage() {
     try {
       setLocalError(null);
       const checkout = await createCheckout();
-      
 
       // SumUp returns hosted_checkout_url when hosted_checkout is enabled
       if (checkout.hosted_checkout_url) {
@@ -43,6 +42,15 @@ export default function SubscriptionPage() {
 
   return (
     <main className="min-h-dvh bg-black flex flex-col items-center justify-center px-4">
+      {/* Close Button */}
+      <button
+        onClick={() => router.push("/")}
+        className="fixed top-4 right-4 p-2 rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors z-10"
+        aria-label="Schließen"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
