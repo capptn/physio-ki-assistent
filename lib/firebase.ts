@@ -4,6 +4,7 @@ import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import {
   getMessaging,
   getToken,
+  deleteToken,
   onMessage,
   Messaging,
   isSupported,
@@ -83,18 +84,136 @@ export async function getFirebaseMessaging(): Promise<Messaging | undefined> {
   return messaging;
 }
 
-// Get FCM token WITHOUT requesting permission — only call when permission is already granted
-export async function getFCMToken(): Promise<string | null> {
+// Suppress Firebase Messaging's internal console.warn for a single async
+// operation. Firebase logs a noisy warning before rethrowing errors like
+// "token-unsubscribe-failed" — we handle those errors explicitly, so the
+// warning is just noise.
+async function withSuppressedFcmWarnings<T>(fn: () => Promise<T>): Promise<T> {
+  const origWarn = console.warn;
+  const origError = console.error;
+  const shouldSuppress = (args: unknown[]) => {
+    const first = args[0];
+    const text = typeof first === "string" ? first : String(first ?? "");
+    return (
+      text.includes("token-unsubscribe-failed") ||
+      text.includes("token-subscribe-failed") ||
+      text.includes("A problem occurred while unsubscribing") ||
+      text.includes("A problem occurred while subscribing")
+    );
+  };
+  console.warn = (...args: unknown[]) => {
+    if (shouldSuppress(args)) return;
+    origWarn.apply(console, args as []);
+  };
+  console.error = (...args: unknown[]) => {
+    if (shouldSuppress(args)) return;
+    origError.apply(console, args as []);
+  };
+  try {
+    return await fn();
+  } finally {
+    console.warn = origWarn;
+    console.error = origError;
+  }
+}
+
+// Get FCM token WITHOUT requesting permission — only call when permission is already granted.
+// Pass the ServiceWorkerRegistration after it is *active* (e.g. via navigator.serviceWorker.ready)
+// to avoid: "Subscription failed - no active Service Worker".
+export async function getFCMToken(
+  serviceWorkerRegistration?: ServiceWorkerRegistration,
+): Promise<string | null> {
   if (typeof window === "undefined") return null;
 
   const messaging = await getFirebaseMessaging();
   if (!messaging) return null;
 
+  const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+
   try {
-    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-    const token = await getToken(messaging, { vapidKey });
-    return token;
+    return await withSuppressedFcmWarnings(() =>
+      getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration,
+      }),
+    );
   } catch (error) {
+    const code = (error as { code?: string } | null)?.code ?? "";
+    const message = String(error);
+
+    // Case 1: Stale FCM registration on the server — Firebase's refresh path
+    // hits HTTP 400 because the old token no longer exists server-side.
+    const isStale =
+      code === "messaging/token-unsubscribe-failed" ||
+      code === "messaging/token-subscribe-failed" ||
+      message.includes("token-unsubscribe-failed");
+
+    if (isStale && serviceWorkerRegistration) {
+      console.warn(
+        "FCM token appears stale — clearing Firebase's token and retrying...",
+      );
+
+      // Let Firebase clean up its own IndexedDB via its public API.
+      // This avoids dangling IDBDatabase handles inside the SDK.
+      try {
+        await withSuppressedFcmWarnings(() => deleteToken(messaging));
+      } catch {
+        // deleteToken itself may 400 on the FCM server. We don't care — the
+        // local IDB entry is still removed, which is what we need.
+      }
+
+      // Also drop the PushManager subscription so getToken() will fully
+      // re-subscribe on the next attempt.
+      try {
+        const sub =
+          await serviceWorkerRegistration.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      } catch (e) {
+        console.warn("Failed to unsubscribe stale push subscription:", e);
+      }
+
+      try {
+        return await withSuppressedFcmWarnings(() =>
+          getToken(messaging, {
+            vapidKey,
+            serviceWorkerRegistration,
+          }),
+        );
+      } catch (retryError) {
+        console.error("Error getting FCM token after retry:", retryError);
+        return null;
+      }
+    }
+
+    // Case 2: Firebase's in-memory IDBDatabase handle is corrupt (e.g. the DB
+    // was deleted beneath the SDK). Only a fresh page load can rebuild the
+    // handle. Do a one-shot reload, guarded by a flag to prevent loops.
+    const isIdbCorruption =
+      error instanceof DOMException &&
+      error.name === "NotFoundError" &&
+      message.includes("object stores was not found");
+
+    if (isIdbCorruption) {
+      const RELOAD_FLAG = "2heal_fcm_reload_attempted";
+      const alreadyTried = sessionStorage.getItem(RELOAD_FLAG) === "1";
+      if (!alreadyTried) {
+        sessionStorage.setItem(RELOAD_FLAG, "1");
+        console.warn(
+          "Firebase IndexedDB handle is corrupt — reloading once to recover.",
+        );
+        // Best-effort cleanup before reload. No await on deleteDatabase —
+        // the reload itself closes any open handles.
+        try {
+          indexedDB.deleteDatabase("firebase-messaging-database");
+        } catch {
+          /* ignore */
+        }
+        window.location.reload();
+        return null;
+      }
+      sessionStorage.removeItem(RELOAD_FLAG);
+    }
+
     console.error("Error getting FCM token:", error);
     return null;
   }

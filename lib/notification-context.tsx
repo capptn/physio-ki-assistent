@@ -51,43 +51,90 @@ export function NotificationContextProvider({
     const supported = await isMessagingSupported();
     if (!supported) return undefined;
 
-    if ("serviceWorker" in navigator) {
-      try {
-        const swUrl = new URL(
-          "/firebase-messaging-sw.js",
-          window.location.origin,
-        );
-        swUrl.searchParams.set(
-          "apiKey",
-          process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
-        );
-        swUrl.searchParams.set(
-          "authDomain",
-          process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
-        );
-        swUrl.searchParams.set(
-          "projectId",
-          process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
-        );
-        swUrl.searchParams.set(
-          "storageBucket",
-          process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
-        );
-        swUrl.searchParams.set(
-          "messagingSenderId",
-          process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
-        );
-        swUrl.searchParams.set(
-          "appId",
-          process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
-        );
-        await navigator.serviceWorker.register(swUrl.toString());
-      } catch (error) {
-        console.error("Firebase SW registration failed:", error);
+    if (!("serviceWorker" in navigator)) return undefined;
+
+    let registration: ServiceWorkerRegistration | undefined;
+    try {
+      const swUrl = new URL(
+        "/firebase-messaging-sw.js",
+        window.location.origin,
+      );
+      swUrl.searchParams.set(
+        "apiKey",
+        process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+      );
+      swUrl.searchParams.set(
+        "authDomain",
+        process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+      );
+      swUrl.searchParams.set(
+        "projectId",
+        process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
+      );
+      swUrl.searchParams.set(
+        "storageBucket",
+        process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+      );
+      swUrl.searchParams.set(
+        "messagingSenderId",
+        process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+      );
+      swUrl.searchParams.set(
+        "appId",
+        process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
+      );
+
+      registration = await navigator.serviceWorker.register(swUrl.toString());
+
+      // register() resolves once the SW is *installed*, not *activated*.
+      // pushManager.subscribe() (used internally by getToken) requires an
+      // active worker, so we must wait for activation before requesting a token.
+      if (!registration.active) {
+        const worker = registration.installing || registration.waiting;
+        if (worker) {
+          await new Promise<void>((resolve) => {
+            const onStateChange = () => {
+              if (worker.state === "activated") {
+                worker.removeEventListener("statechange", onStateChange);
+                resolve();
+              }
+            };
+            worker.addEventListener("statechange", onStateChange);
+          });
+        }
       }
+
+      // Extra safety: ensure the SW controlling our scope is ready.
+      await navigator.serviceWorker.ready;
+
+      // If the Firebase project / VAPID key changed, drop the stale
+      // PushManager subscription so getToken() can re-subscribe cleanly.
+      // We intentionally do NOT touch firebase-messaging-database here —
+      // the SDK owns that DB, and deleting it out from under an open handle
+      // causes "NotFoundError: object stores was not found".
+      const currentSignature = [
+        process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
+        process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+        process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "",
+      ].join("|");
+      const storedSignature = localStorage.getItem("2heal_fcm_config_sig");
+      if (storedSignature && storedSignature !== currentSignature) {
+        try {
+          const sub = await registration.pushManager.getSubscription();
+          if (sub) await sub.unsubscribe();
+        } catch (e) {
+          console.warn("Failed to unsubscribe stale push subscription:", e);
+        }
+      }
+      localStorage.setItem("2heal_fcm_config_sig", currentSignature);
+    } catch (error) {
+      console.error("Firebase SW registration failed:", error);
+      return undefined;
     }
 
-    const token = await import("@/lib/firebase").then((m) => m.getFCMToken());
+    const token = await import("@/lib/firebase").then((m) =>
+      m.getFCMToken(registration),
+    );
     if (token) setFcmToken(token);
 
     // Foreground messages are handled by NotificationProvider
@@ -167,11 +214,21 @@ export function NotificationContextProvider({
     localStorage.setItem("2heal_notifications_disabled", "true");
     localStorage.removeItem("2heal_notification_prompted");
 
-    // Unregister all service workers
+    // Unsubscribe PushManager first, then unregister service workers.
+    // Skipping the unsubscribe step leaves a stale push subscription bound to
+    // the old VAPID key / project, which causes
+    // "messaging/token-unsubscribe-failed" the next time getToken runs.
     if ("serviceWorker" in navigator) {
       try {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const registration of registrations) {
+          try {
+            const subscription =
+              await registration.pushManager.getSubscription();
+            if (subscription) await subscription.unsubscribe();
+          } catch (e) {
+            console.warn("Failed to unsubscribe PushManager:", e);
+          }
           await registration.unregister();
         }
       } catch (error) {
